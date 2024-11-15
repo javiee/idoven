@@ -10,7 +10,6 @@
 Assumptions
 
 - Open source tools, non-propiotary 
-- The system is under no heavy workload
 - Providing the easiest solution with the least operation overhead
 
 1 - For an entrepise solution I would choose to use Posgresql
@@ -29,6 +28,8 @@ Deploying two Bitnami PostgreSQL clusters:
 * Cluster 2 (Standby): Primary node and a local secondary replica, configured as a standby of Cluster 1.
 
 Setting up asynchronous replication between Cluster 1 and Cluster 2, where Cluster 2’s primary will act as a read-only standby.
+
+![AB cluster](images/AB.png)
 
 example config:
 
@@ -108,6 +109,7 @@ spec:
         automated:                   # Optional: Enable auto-sync
           prune: true
           selfHeal: true
+```
 
 3 - What approach would you take for backups?
 Assuming choosing a solution for scalable backups I would probably use Velero
@@ -124,20 +126,20 @@ The advantages of using this approach are the following:
 * It can be easily restore pvc into another cluster, for example restoring prod database into staging environment for troubleshooting and issue
 * One tool for all.
 
-4 - 
-Assumtions: 
-- Prometheus operator is installed inside the kubernetes cluster
+4 -The standard approach to monitoring PostgreSQL in Kubernetes is by using its dedicated exporter, developed specifically for this purpose:
 
 https://github.com/prometheus-community/postgres_exporter
 
-5 - This set up got multiple problems that can be addressed 
+This exporter exposes critical metrics like db current/active connections, replication metrics (state, lag) , disk usage, WAL metrics, buffer etc. 
+The setup would be very simple, central prometheus or mimir cluster, promtheus operator deployed on each cluster with low retention and remote write to the central cluster for long-term storage. The exporter exposes an endpoint that prometheus will scraped as per the config.
+
+5 - This setup presents the following challenges:
 
 * heavy / writes workloads. This setup only allows one primary that can accepts writes. This mean that writes only allows scale vertically the machine so it there is a limit to where we can reach.  We could potentially address this problem by using sharding.
 
-* Kubernetes installation primary/secondary does not support failover. That means in the event of master going off-line we will loose the ability of accepting writes until an operator fails over the cluster in favour of one the replicas ones. Depending of the workload this could be tacke of different 2 ways in my opinion.
-Easy-way. Since we will have monitoring in place, we can detect when one the primaries is down for some time and then trigger a k8 job or script to automatically failover. I think this scenario is ok if we have certain tolerance for writes queries to fail for some time.
-
-Hard-way. If quick failover is needed in order to support the business or the cluster is under heavy workloads, then we need to change our approach. THen we need to consider to use prometheues operator uses Patroni under the hood to manage high availability, automated failover, and leader election. When a primary pod crashes, Patroni detects the failure and coordinates a failover to a healthy replica in the cluster. 
+* Kubernetes installations with a primary/secondary setup do not support failover natively. This means that if the primary node goes offline, the cluster will lose the ability to accept writes until an operator initiates a failover to one of the replicas. Depending on the workload, this can be addressed in two main ways, in my opinion:
+1 - With monitoring in place, we can detect when the primary has been down for a certain period and trigger a Kubernetes job or script to perform an automated failover. This approach is acceptable if there is some tolerance for write query failures during the downtime.
+2 - If rapid failover is critical to support the business or the cluster is under heavy workloads, a more robust approach is required. In this case, we should consider using the Prometheus operator alongside Patroni. Patroni provides high availability by managing automated failover and leader election. When a primary pod crashes, Patroni detects the failure and orchestrates a failover to a healthy replica within the cluster.
 
 https://github.com/zalando/postgres-operator
 
@@ -201,23 +203,13 @@ spec:
   service:
     type: ClusterIP
 ```
+This setup is significantly more complex and, in my opinion, should be avoided unless there are strong requirements pushing for the implementation of this operator.
 
-This setup is far more complex and in my opinion should be avoided unless there are strong requirements that leads us to implement this operator. 
+Failover would occur within the cluster itself, but failing over the AWS stack would require manual intervention or the execution of an automated process.
 
-Failover would happen within the cluster so to fail over AWS stack we would need to do manually or by running an automation. 
-
-6 - Transitioning to active / passive to active / active we need to configure the aplications of stack B to performs writes on the primary that is on the GCP cluster. The stanby cluster can still be use to serve read queries. In order to provide realibility to both cluster I would install connection pool like pgbouncer. By doing this we can ensure that connections are load balancer, we can take down db units without downtime to perform maintenance etc among other benefits. If the load would increase that one primary would be not enough my next move would be to consider sharding the database. 
-
+6 - Transitioning from active/passive to active/active requires configuring the applications in Stack B to perform writes on the primary database located in the GCP cluster. The standby cluster can still be utilized to handle read queries. To ensure reliability for both clusters, I recommend installing a connection pooler like pgbouncer. This will help load balance connections, allow us to take database units offline for maintenance without causing downtime, and provide additional benefits. If the load increases to the point where a single primary is insufficient, the next step would be to consider sharding the database.
 
 
+![DB cluster](images/pgpoolpng.png)
 
-
-
-
-
-
-
-
-https://www.pgbouncer.org/
-
-In terms of monitoring prometheus.
+In terms of monitoring no major changes, remote-write to prometheus or mimir instance.
