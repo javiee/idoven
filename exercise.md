@@ -7,14 +7,14 @@
     If we want to transition to an active-active scenario, what modifications would be necessary?
 
 
-Assumptions
+Assumptions:
 
-- Open source tools, non-propiotary 
-- Providing the easiest solution with the least operational overhead
+- Open source tools, non-proprietary software. 
+- Providing the easiest solution with the least operational overhead.
 
-1 - For an entrepise solution I would choose to use Posgresql
+1 - For an enterprise solution I would choose to use Posgresql.
 
-Although the exercise does not make any reference about wether the application performs heavy writes or reads worlkloads to the database, the reason of choosing posgresql are its extended capabilities for clustering and replication, since Postgress is based on WAL files, making faster and  more reliable than mysql. Since we are looking for deploying our databases in multiple clouds I believe replication realibility will be paramount to maintain consistency across the stacks.
+Although the exercise does not make any reference to wether the application performs heavy writes/reads workloads to the database, the reason of choosing posgresql is its extended capabilities for clustering and replication, since Postgress is based on WAL files, making faster and  more reliable than mysql. Since we are looking for deploying our databases in multiple clouds I believe replication reliability will be paramount to maintain consistency across the stacks.
 
 2 - To deploy a posgresql cluster in kubernetes I would use a helm chart , probably this one 
 https://artifacthub.io/packages/helm/bitnami/postgresql.  
@@ -60,9 +60,9 @@ helm install aws-postgresql-standby bitnami/postgresql \
   --set primary.standby.primaryPor=5432 \
   --set primary.service.type=LoadBalancer
 ```
-To deploy helm charts into kubernetes I would consider 2 options flux2 or argocd. For this particular
-scenario I would vote in favour or argocd due to its support for multitenancy deployments. 
-You could deploy the above by using and application set
+To deploy helm charts into kubernetes I would consider 2 options: flux2 or argocd. For this particular scenario I would be inclined to use argocd due to its support for multitenancy deployments. 
+
+You could deploy the above by using Arogo application sets.
 
 ```
 apiVersion: argoproj.io/v1alpha1
@@ -112,7 +112,7 @@ spec:
 ```
 
 3 - What approach would you take for backups?
-Assuming choosing a solution for scalable backups I would probably use Velero
+Assuming choosing a solution for scalable backups I would probably use Velero.
 
 https://github.com/vmware-tanzu/velero
 
@@ -123,7 +123,7 @@ The advantages of using this approach are the following:
 * Scheduled backups.
 * Options. Snapshots or filesystem backups
 * It is not tied to a specific storage platform.
-* It can be easily restore pvc into another cluster, for example restoring prod database into staging environment for troubleshooting and issue
+* PVC can be easily restored into another cluster, for example restoring prod database into staging environment for troubleshooting.
 * One tool for all.
 
 4 -The standard approach to monitoring PostgreSQL in Kubernetes is by using its dedicated exporter, developed specifically for this purpose:
@@ -131,11 +131,11 @@ The advantages of using this approach are the following:
 https://github.com/prometheus-community/postgres_exporter
 
 This exporter exposes critical metrics like db current/active connections, replication metrics (state, lag) , disk usage, WAL metrics, buffer etc. 
-The setup would be very simple, central prometheus or mimir cluster, promtheus operator deployed on each cluster with low retention and remote write to the central cluster for long-term storage. The exporter exposes an endpoint that prometheus will scraped as per the config.
+The setup would be very simple, central prometheus or mimir cluster, promtheus operator deployed on each cluster with low retention and remote write to the central cluster for long-term storage. The exporter exposes an endpoint that prometheus scrapes as per the config.
 
 5 - This setup presents the following challenges:
 
-* heavy / writes workloads. This setup only allows one primary that can accepts writes. This mean that writes only allows scale vertically the machine so it there is a limit to where we can reach.  We could potentially address this problem by using sharding.
+* Heavy / writes workloads. This setup only allows one primary that can accept writes. This means that writes only allow scale vertically the machine so there is a limit in the physical capacity we can scale to.  We could potentially address this problem by using sharding.
 
 * Kubernetes installations with a primary/secondary setup do not support failover natively. This means that if the primary node goes offline, the cluster will lose the ability to accept writes until an operator initiates a failover to one of the replicas. Depending on the workload, this can be addressed in two main ways, in my opinion:
 1 - With monitoring in place, we can detect when the primary has been down for a certain period and trigger a Kubernetes job or script to perform an automated failover. This approach is acceptable if there is some tolerance for write query failures during the downtime.
@@ -212,4 +212,4 @@ Failover would occur within the cluster itself, but failing over the AWS stack w
 
 ![DB cluster](images/pgpoolpng.png)
 
-In terms of monitoring no major changes, remote-write to prometheus or mimir instance.
+In terms of monitoring, no major changes, remote-write to prometheus or mimir instance.
