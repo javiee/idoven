@@ -10,14 +10,14 @@
 Assumptions
 
 - Open source tools, non-propiotary 
-- Providing the easiest solution with the least operation overhead
+- Providing the easiest solution with the least operational overhead
 
 1 - For an entrepise solution I would choose to use Posgresql
 
 Although the exercise does not make any reference about wether the application performs heavy writes or reads worlkloads to the database, the reason of choosing posgresql are its extended capabilities for clustering and replication, since Postgress is based on WAL files, making faster and  more reliable than mysql. Since we are looking for deploying our databases in multiple clouds I believe replication realibility will be paramount to maintain consistency across the stacks.
 
 2 - To deploy a posgresql cluster in kubernetes I would use a helm chart , probably this one 
-https://artifacthub.io/packages/helm/bitnami/postgresql. Bitnami 
+https://artifacthub.io/packages/helm/bitnami/postgresql.  
 
 For this scenario:
 
